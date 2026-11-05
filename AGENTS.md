@@ -25,9 +25,11 @@ Run lint and typecheck before declaring any task done.
 
 ## Navigation & Routing
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+- Use **React Navigation 7** (dynamic API: `Stack.Navigator` / `Tab.Navigator`), not Expo Router. Do not install `expo-router` or create `src/app/`.
+- Screens live in `src/screens/`, navigators in `src/navigation/`. `src/App.js` wraps everything in `NavigationContainer` and renders `AuthStack` (logged out) or `MainTabs` (logged in).
+- `MainTabs` is a bottom tab navigator; each tab is its own native stack (`CatalogStack`, `MySessionsStack`, `ProfileStack`).
+- Navigate with `navigation.navigate('ScreenName', { id })` and read params from `route.params`. Don't navigate manually after login/logout — switching `AuthStack`/`MainTabs` handles it.
+- Docs: https://reactnavigation.org/docs/getting-started
 
 ## Building with EAS
 
