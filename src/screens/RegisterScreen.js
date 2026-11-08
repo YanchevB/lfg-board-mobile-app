@@ -1,9 +1,11 @@
-import { Text, View } from 'react-native';
+import { Button, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function RegisterScreen() {
+export default function RegisterScreen({ navigation }) {
     return (
-        <View>
+        <SafeAreaView>
             <Text>Register</Text>
-        </View>
+            <Button title="Already have an account? Log in" onPress={() => navigation.goBack()} />
+        </SafeAreaView>
     );
 }

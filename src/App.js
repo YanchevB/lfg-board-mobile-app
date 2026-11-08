@@ -1,17 +1,17 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
-import AuthTab from './navigation/AuthTab';
+import AuthStack from './navigation/AuthStack';
 import MainTabs from './navigation/MainTabs';
 
-// Temporary until AuthContext exists (Leg 2). Set to false to see Login/Register.
+// Temporary until AuthContext exists (Leg 2). Set to false to see Login/Register (AuthStack).
 const isLoggedIn = true;
 
 export default function App() {
     return (
         <NavigationContainer>
             <StatusBar style="auto" />
-            {isLoggedIn ? <MainTabs /> : <AuthTab />}
+            {isLoggedIn ? <MainTabs /> : <AuthStack />}
         </NavigationContainer>
     );
 }
