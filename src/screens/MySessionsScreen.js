@@ -1,13 +1,176 @@
-import { Button, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import AppButton from '../components/AppButton';
+import { StatusBadge } from '../components/Badge';
+import Icon from '../components/Icon';
+import LargeHeader from '../components/LargeHeader';
+import SectionLabel from '../components/SectionLabel';
+import { currentUser, getHostedSessions, getJoinedSessions } from '../data/sampleData';
+import { colors, fonts } from '../theme';
+import { getSessionStatus } from '../utils/sessionStatus';
 
 export default function MySessionsScreen({ navigation }) {
+    const hosting = getHostedSessions(currentUser.id);
+    const joined = getJoinedSessions(currentUser.id);
+
+    function openSession(id) {
+        navigation.navigate('SessionDetails', { id });
+    }
+
     return (
-        <View>
+        <View style={styles.screen}>
+            <LargeHeader title="My Sessions" />
 
-            <Button title="Host a session" onPress={() => navigation.navigate('CreateSession')} />
+            <ScrollView contentContainerStyle={styles.content}>
+                <View style={styles.section}>
+                    <SectionHeading title="Hosting" count={hosting.length} />
+                    {hosting.map((session) => (
+                        <SessionRow
+                            key={session.id}
+                            session={session}
+                            detail={session.mic_required ? 'Mic' : 'No mic'}
+                            onPress={() => openSession(session.id)}
+                        />
+                    ))}
+                </View>
 
-            {/* Temporary button until real session cards exist */}
-            <Button title="Session Details" onPress={() => navigation.navigate('SessionDetails', { id: '2' })} />
+                <View style={styles.section}>
+                    <SectionHeading title="Joined" count={joined.length} />
+                    {joined.map((session) => (
+                        <SessionRow
+                            key={session.id}
+                            session={session}
+                            detail={`Hosted by ${session.host.username}`}
+                            onPress={() => openSession(session.id)}
+                        />
+                    ))}
+                </View>
+
+                <View style={styles.promo}>
+                    <Text style={styles.promoText}>Want more people? Host another lobby and it shows up here.</Text>
+                    <AppButton
+                        title="Host a session"
+                        icon="plus"
+                        variant="outline"
+                        size="sm"
+                        onPress={() => navigation.navigate('CreateSession')}
+                    />
+                </View>
+            </ScrollView>
         </View>
     );
 }
+
+function SectionHeading({ title, count }) {
+    return (
+        <View style={styles.heading}>
+            <SectionLabel>{title}</SectionLabel>
+            <View style={styles.count}>
+                <Text style={styles.countText}>{count}</Text>
+            </View>
+        </View>
+    );
+}
+
+function SessionRow({ session, detail, onPress }) {
+    const playerCount = session.players.length;
+
+    return (
+        <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            <View style={styles.rowText}>
+                <View style={styles.rowTitle}>
+                    <Text style={styles.game} numberOfLines={1}>{session.game}</Text>
+                    <StatusBadge status={getSessionStatus(session, playerCount)} small />
+                </View>
+                <Text style={styles.meta} numberOfLines={1}>
+                    {session.platform} · {playerCount}/{session.slots} players · {detail}
+                </Text>
+            </View>
+            <Icon name="chevronRight" size={18} color={colors.muted} />
+        </Pressable>
+    );
+}
+
+const styles = StyleSheet.create({
+    screen: {
+        flex: 1,
+    },
+    content: {
+        gap: 24,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+    },
+    section: {
+        gap: 10,
+    },
+    heading: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    count: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 20,
+        height: 20,
+        paddingHorizontal: 6,
+        borderRadius: 10,
+        backgroundColor: colors.surfaceRaised,
+    },
+    countText: {
+        fontSize: 12,
+        color: colors.text,
+        fontFamily: fonts.bold,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 14,
+    },
+    pressed: {
+        opacity: 0.8,
+    },
+    rowText: {
+        flex: 1,
+        gap: 6,
+    },
+    rowTitle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    game: {
+        flexShrink: 1,
+        fontSize: 16,
+        color: colors.text,
+        fontFamily: fonts.bold,
+    },
+    meta: {
+        fontSize: 13,
+        color: colors.muted,
+        fontFamily: fonts.regular,
+    },
+    promo: {
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 24,
+        paddingHorizontal: 20,
+        borderWidth: 1.5,
+        borderStyle: 'dashed',
+        borderColor: colors.border,
+        borderRadius: 14,
+    },
+    promoText: {
+        textAlign: 'center',
+        fontSize: 14,
+        lineHeight: 21,
+        color: colors.muted,
+        fontFamily: fonts.regular,
+    },
+});
