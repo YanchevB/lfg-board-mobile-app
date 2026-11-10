@@ -1,5 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(import.meta.env.EXPO_AUTH_URL, import.meta.env.EXPO_API_KEY);
+// Session storage for logins is set up together with AuthContext (Leg 2)
+const supabase = createClient(
+    process.env.EXPO_PUBLIC_SUPABASE_URL,
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+);
 
 export default supabase;
