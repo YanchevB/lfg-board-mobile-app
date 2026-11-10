@@ -1,63 +1,93 @@
+import { useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { getHostedSessions, getJoinedSessions } from '../api/sessions';
 import AppButton from '../components/AppButton';
+import { appRefreshControl } from '../components/appRefreshControl';
 import { StatusBadge } from '../components/Badge';
+import ErrorState from '../components/ErrorState';
 import Icon from '../components/Icon';
 import LargeHeader from '../components/LargeHeader';
+import LoadingState from '../components/LoadingState';
+import MessageState from '../components/MessageState';
 import SectionLabel from '../components/SectionLabel';
-import { currentUser, getHostedSessions, getJoinedSessions } from '../data/sampleData';
+import useAuth from '../hooks/useAuth';
+import useFetch from '../hooks/useFetch';
 import { colors, fonts } from '../theme';
 import { getSessionStatus } from '../utils/sessionStatus';
 
 export default function MySessionsScreen({ navigation }) {
-    const hosting = getHostedSessions(currentUser.id);
-    const joined = getJoinedSessions(currentUser.id);
+    const { user } = useAuth();
+
+    return (
+        <View style={styles.screen}>
+            <LargeHeader title="My Sessions" />
+            {user
+                ? <MySessionsList userId={user.id} navigation={navigation} />
+                : <MessageState message="Log in to see the sessions you host and join." />}
+        </View>
+    );
+}
+
+function MySessionsList({ userId, navigation }) {
+    const fetchMySessions = useCallback(async () => {
+        const [hosting, joined] = await Promise.all([getHostedSessions(userId), getJoinedSessions(userId)]);
+
+        return { hosting, joined };
+    }, [userId]);
+    const { data, error, isLoading, isRefreshing, refresh } = useFetch(fetchMySessions);
+
+    if (isLoading) {
+        return <LoadingState />;
+    }
+
+    if (error) {
+        return <ErrorState title="Couldn't load your sessions" isRefreshing={isRefreshing} onRetry={refresh} />;
+    }
+
+    const { hosting, joined } = data;
 
     function openSession(id) {
         navigation.navigate('SessionDetails', { id });
     }
 
     return (
-        <View style={styles.screen}>
-            <LargeHeader title="My Sessions" />
-
-            <ScrollView contentContainerStyle={styles.content}>
-                <View style={styles.section}>
-                    <SectionHeading title="Hosting" count={hosting.length} />
-                    {hosting.map((session) => (
-                        <SessionRow
-                            key={session.id}
-                            session={session}
-                            detail={session.mic_required ? 'Mic' : 'No mic'}
-                            onPress={() => openSession(session.id)}
-                        />
-                    ))}
-                </View>
-
-                <View style={styles.section}>
-                    <SectionHeading title="Joined" count={joined.length} />
-                    {joined.map((session) => (
-                        <SessionRow
-                            key={session.id}
-                            session={session}
-                            detail={`Hosted by ${session.host.username}`}
-                            onPress={() => openSession(session.id)}
-                        />
-                    ))}
-                </View>
-
-                <View style={styles.promo}>
-                    <Text style={styles.promoText}>Want more people? Host another lobby and it shows up here.</Text>
-                    <AppButton
-                        title="Host a session"
-                        icon="plus"
-                        variant="outline"
-                        size="sm"
-                        onPress={() => navigation.navigate('CreateSession')}
+        <ScrollView contentContainerStyle={styles.content} refreshControl={appRefreshControl(isRefreshing, refresh)}>
+            <View style={styles.section}>
+                <SectionHeading title="Hosting" count={hosting.length} />
+                {hosting.map((session) => (
+                    <SessionRow
+                        key={session.id}
+                        session={session}
+                        detail={session.mic_required ? 'Mic' : 'No mic'}
+                        onPress={() => openSession(session.id)}
                     />
-                </View>
-            </ScrollView>
-        </View>
+                ))}
+            </View>
+
+            <View style={styles.section}>
+                <SectionHeading title="Joined" count={joined.length} />
+                {joined.map((session) => (
+                    <SessionRow
+                        key={session.id}
+                        session={session}
+                        detail={`Hosted by ${session.host.username}`}
+                        onPress={() => openSession(session.id)}
+                    />
+                ))}
+            </View>
+
+            <View style={styles.promo}>
+                <Text style={styles.promoText}>Want more people? Host another lobby and it shows up here.</Text>
+                <AppButton
+                    title="Host a session"
+                    icon="plus"
+                    variant="outline"
+                    size="sm"
+                    onPress={() => navigation.navigate('CreateSession')}
+                />
+            </View>
+        </ScrollView>
     );
 }
 

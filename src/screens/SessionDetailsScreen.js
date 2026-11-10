@@ -1,12 +1,18 @@
-import { useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { getSession } from '../api/sessions';
 import AppButton from '../components/AppButton';
+import { appRefreshControl } from '../components/appRefreshControl';
 import Avatar from '../components/Avatar';
 import Badge, { StatusBadge } from '../components/Badge';
+import ErrorState from '../components/ErrorState';
 import Icon from '../components/Icon';
+import LoadingState from '../components/LoadingState';
+import MessageState from '../components/MessageState';
 import SectionLabel from '../components/SectionLabel';
-import { currentUser, getSession } from '../data/sampleData';
+import useAuth from '../hooks/useAuth';
+import useFetch from '../hooks/useFetch';
 import { colors, fonts } from '../theme';
 import { getSessionStatus } from '../utils/sessionStatus';
 import { timeAgo } from '../utils/time';
@@ -15,9 +21,12 @@ const MAX_EMPTY_SEATS = 3;
 
 export default function SessionDetailsScreen({ navigation, route }) {
     const { id } = route.params;
-    const session = getSession(id);
+    const { user } = useAuth();
 
-    const isHost = session?.owner_id === currentUser.id;
+    const fetchSession = useCallback(() => getSession(id), [id]);
+    const { data: session, error, isLoading, isRefreshing, refresh } = useFetch(fetchSession);
+
+    const isHost = Boolean(user) && session?.owner_id === user.id;
 
     useLayoutEffect(() => {
         if (isHost) {
@@ -35,12 +44,16 @@ export default function SessionDetailsScreen({ navigation, route }) {
         }
     }, [navigation, id, isHost]);
 
+    if (isLoading) {
+        return <LoadingState />;
+    }
+
+    if (error) {
+        return <ErrorState title="Couldn't load this session" isRefreshing={isRefreshing} onRetry={refresh} />;
+    }
+
     if (!session) {
-        return (
-            <View style={styles.notFound}>
-                <Text style={styles.notFoundText}>This session doesn&apos;t exist anymore.</Text>
-            </View>
-        );
+        return <MessageState message="This session doesn't exist anymore." />;
     }
 
     const playerCount = session.players.length;
@@ -49,7 +62,7 @@ export default function SessionDetailsScreen({ navigation, route }) {
 
     return (
         <View style={styles.screen}>
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} refreshControl={appRefreshControl(isRefreshing, refresh)}>
                 <View style={styles.intro}>
                     <View style={styles.badges}>
                         <StatusBadge status={status} />
@@ -78,7 +91,7 @@ export default function SessionDetailsScreen({ navigation, route }) {
                                 key={player.id}
                                 player={player}
                                 isHost={player.id === session.owner_id}
-                                isYou={player.id === currentUser.id}
+                                isYou={player.id === user?.id}
                                 showDivider={index < playerCount - 1 || openSlots > 0}
                                 onPress={() => navigation.navigate('PlayerProfile', { id: player.id })}
                             />
@@ -110,15 +123,15 @@ export default function SessionDetailsScreen({ navigation, route }) {
                         </Pressable>
                     </>
                 ) : (
-                    <JoinButton session={session} status={status} />
+                    <JoinButton session={session} status={status} userId={user?.id} />
                 )}
             </View>
         </View>
     );
 }
 
-function JoinButton({ session, status }) {
-    if (session.players.some((player) => player.id === currentUser.id)) {
+function JoinButton({ session, status, userId }) {
+    if (session.players.some((player) => player.id === userId)) {
         return <AppButton title="Leave session" variant="secondary" style={styles.footerMain} />;
     }
 
@@ -178,18 +191,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: colors.accent,
         fontFamily: fonts.semibold,
-    },
-    notFound: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 40,
-    },
-    notFoundText: {
-        textAlign: 'center',
-        fontSize: 15,
-        color: colors.muted,
-        fontFamily: fonts.regular,
     },
     intro: {
         gap: 10,

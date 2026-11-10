@@ -1,61 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import AppButton from '../components/AppButton';
+import { getOpenSessions } from '../api/sessions';
+import { appRefreshControl } from '../components/appRefreshControl';
+import ErrorState from '../components/ErrorState';
 import Icon from '../components/Icon';
 import LargeHeader from '../components/LargeHeader';
+import MessageState from '../components/MessageState';
 import SessionCard from '../components/SessionCard';
-import { fetchOpenSessions } from '../data/sampleData';
+import useFetch from '../hooks/useFetch';
 import { colors, fonts } from '../theme';
 
 export default function CatalogScreen({ navigation }) {
-    const [sessions, setSessions] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [hasError, setHasError] = useState(false);
-
-    const loadSessions = useCallback(() => {
-        return fetchOpenSessions()
-            .then((data) => {
-                setSessions(data);
-                setHasError(false);
-            })
-            .catch(() => setHasError(true));
-    }, []);
-
-    useEffect(() => {
-        loadSessions().finally(() => setIsLoading(false));
-    }, [loadSessions]);
-
-    async function refresh() {
-        setIsRefreshing(true);
-        await loadSessions();
-        setIsRefreshing(false);
-    }
-
-    async function retry() {
-        setIsLoading(true);
-        await loadSessions();
-        setIsLoading(false);
-    }
-
-    const refreshControl = (
-        <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={refresh}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
-            progressBackgroundColor={colors.surface}
-        />
-    );
+    const { data: sessions, error, isLoading, isRefreshing, refresh } = useFetch(getOpenSessions);
 
     function renderContent() {
         if (isLoading) {
             return <CatalogLoading />;
         }
 
-        if (hasError) {
-            return <CatalogError refreshControl={refreshControl} onRetry={retry} />;
+        if (error) {
+            return <ErrorState title="Couldn't load sessions" isRefreshing={isRefreshing} onRetry={refresh} />;
         }
 
         return (
@@ -66,8 +30,9 @@ export default function CatalogScreen({ navigation }) {
                     <SessionCard session={item} onPress={() => navigation.navigate('SessionDetails', { id: item.id })} />
                 )}
                 ItemSeparatorComponent={Separator}
+                ListEmptyComponent={<MessageState message="No open sessions right now. Host one and it shows up here." />}
                 contentContainerStyle={styles.list}
-                refreshControl={refreshControl}
+                refreshControl={appRefreshControl(isRefreshing, refresh)}
             />
         );
     }
@@ -139,21 +104,6 @@ function Bone({ width, height, radius = 6 }) {
     return <View style={{ width, height, borderRadius: radius, backgroundColor: colors.surfaceRaised }} />;
 }
 
-function CatalogError({ refreshControl, onRetry }) {
-    return (
-        <ScrollView contentContainerStyle={styles.error} refreshControl={refreshControl}>
-            <View style={styles.errorIcon}>
-                <Icon name="wifiOff" size={30} color={colors.dangerText} />
-            </View>
-            <View style={styles.errorText}>
-                <Text style={styles.errorTitle}>Couldn&apos;t load sessions</Text>
-                <Text style={styles.errorMessage}>Check your connection and try again. You can also pull down to refresh.</Text>
-            </View>
-            <AppButton title="Try again" icon="refresh" variant="outline" size="md" onPress={onRetry} />
-        </ScrollView>
-    );
-}
-
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
@@ -173,6 +123,7 @@ const styles = StyleSheet.create({
         fontFamily: fonts.bold,
     },
     list: {
+        flexGrow: 1,
         paddingHorizontal: 16,
         paddingBottom: 16,
     },
@@ -206,37 +157,5 @@ const styles = StyleSheet.create({
     bonesRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-    },
-    error: {
-        flexGrow: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 16,
-        paddingHorizontal: 40,
-        paddingBottom: 60,
-    },
-    errorIcon: {
-        width: 64,
-        height: 64,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 32,
-        backgroundColor: colors.dangerSoft,
-    },
-    errorText: {
-        gap: 8,
-    },
-    errorTitle: {
-        textAlign: 'center',
-        fontSize: 20,
-        color: colors.text,
-        fontFamily: fonts.bold,
-    },
-    errorMessage: {
-        textAlign: 'center',
-        fontSize: 15,
-        lineHeight: 22,
-        color: colors.muted,
-        fontFamily: fonts.regular,
     },
 });

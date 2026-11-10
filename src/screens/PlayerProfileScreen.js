@@ -1,33 +1,50 @@
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { getProfile } from '../api/profiles';
+import { getHostedSessions } from '../api/sessions';
+import { appRefreshControl } from '../components/appRefreshControl';
 import Avatar from '../components/Avatar';
+import ErrorState from '../components/ErrorState';
+import LoadingState from '../components/LoadingState';
+import MessageState from '../components/MessageState';
 import SectionLabel from '../components/SectionLabel';
 import SessionCard from '../components/SessionCard';
-import { getHostedSessions, getProfile } from '../data/sampleData';
+import useFetch from '../hooks/useFetch';
 import { colors, fonts } from '../theme';
 import { memberSince } from '../utils/time';
 
 export default function PlayerProfileScreen({ navigation, route }) {
     const { id } = route.params;
-    const player = getProfile(id);
 
-    if (!player) {
-        return (
-            <View style={styles.notFound}>
-                <Text style={styles.muted}>This player doesn&apos;t exist anymore.</Text>
-            </View>
-        );
+    const fetchPlayer = useCallback(async () => {
+        const [profile, hosting] = await Promise.all([getProfile(id), getHostedSessions(id)]);
+
+        return { profile, hosting };
+    }, [id]);
+    const { data, error, isLoading, isRefreshing, refresh } = useFetch(fetchPlayer);
+
+    if (isLoading) {
+        return <LoadingState />;
     }
 
-    const hosting = getHostedSessions(id);
+    if (error) {
+        return <ErrorState title="Couldn't load this player" isRefreshing={isRefreshing} onRetry={refresh} />;
+    }
+
+    if (!data.profile) {
+        return <MessageState message="This player doesn't exist anymore." />;
+    }
+
+    const { profile, hosting } = data;
 
     return (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} refreshControl={appRefreshControl(isRefreshing, refresh)}>
             <View style={styles.identity}>
-                <Avatar name={player.username} size={104} fontSize={40} bordered />
+                <Avatar name={profile.username} size={104} fontSize={40} bordered />
                 <View style={styles.names}>
-                    <Text style={styles.username}>{player.username}</Text>
-                    <Text style={styles.muted}>Member since {memberSince(player.created_at)}</Text>
+                    <Text style={styles.username}>{profile.username}</Text>
+                    <Text style={styles.muted}>Member since {memberSince(profile.created_at)}</Text>
                 </View>
             </View>
 
@@ -53,12 +70,6 @@ const styles = StyleSheet.create({
         paddingTop: 28,
         paddingHorizontal: 16,
         paddingBottom: 16,
-    },
-    notFound: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 40,
     },
     identity: {
         alignItems: 'center',

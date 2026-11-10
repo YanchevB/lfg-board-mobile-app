@@ -1,33 +1,64 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { getHostedSessions, getJoinedSessions } from '../api/sessions';
 import AppButton from '../components/AppButton';
+import { appRefreshControl } from '../components/appRefreshControl';
 import Avatar from '../components/Avatar';
 import AvatarSheet from '../components/AvatarSheet';
+import ErrorState from '../components/ErrorState';
 import Icon from '../components/Icon';
 import LargeHeader from '../components/LargeHeader';
-import { currentUser, getHostedSessions, getJoinedSessions } from '../data/sampleData';
+import LoadingState from '../components/LoadingState';
+import MessageState from '../components/MessageState';
+import useAuth from '../hooks/useAuth';
+import useFetch from '../hooks/useFetch';
 import { colors, fonts } from '../theme';
 import { memberSince } from '../utils/time';
 
 export default function ProfileScreen({ navigation }) {
+    const { user } = useAuth();
+
+    return (
+        <View style={styles.screen}>
+            <LargeHeader title="Profile" paddingBottom={8} />
+            {user
+                ? <ProfileContent user={user} navigation={navigation} />
+                : <MessageState message="Log in to see your profile." />}
+        </View>
+    );
+}
+
+function ProfileContent({ user, navigation }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-    const hostingCount = getHostedSessions(currentUser.id).length;
-    const joinedCount = getJoinedSessions(currentUser.id).length;
+    const username = user.user_metadata.username;
+
+    const fetchCounts = useCallback(async () => {
+        const [hosting, joined] = await Promise.all([getHostedSessions(user.id), getJoinedSessions(user.id)]);
+
+        return { hosting: hosting.length, joined: joined.length };
+    }, [user.id]);
+    const { data: counts, error, isLoading, isRefreshing, refresh } = useFetch(fetchCounts);
+
+    if (isLoading) {
+        return <LoadingState />;
+    }
+
+    if (error) {
+        return <ErrorState title="Couldn't load your profile" isRefreshing={isRefreshing} onRetry={refresh} />;
+    }
 
     function openMySessions() {
         navigation.navigate('MySessionsTab');
     }
 
     return (
-        <View style={styles.screen}>
-            <LargeHeader title="Profile" paddingBottom={8} />
-
-            <ScrollView contentContainerStyle={styles.content}>
+        <>
+            <ScrollView contentContainerStyle={styles.content} refreshControl={appRefreshControl(isRefreshing, refresh)}>
                 <View style={styles.identity}>
                     <View style={styles.avatarWrap}>
-                        <Avatar name={currentUser.username} size={112} fontSize={44} highlighted />
+                        <Avatar name={username} size={112} fontSize={44} highlighted />
                         <Pressable
                             accessibilityRole="button"
                             accessibilityLabel="Change profile picture"
@@ -38,14 +69,14 @@ export default function ProfileScreen({ navigation }) {
                         </Pressable>
                     </View>
                     <View style={styles.names}>
-                        <Text style={styles.username}>{currentUser.username}</Text>
-                        <Text style={styles.since}>Member since {memberSince(currentUser.created_at)}</Text>
+                        <Text style={styles.username}>{username}</Text>
+                        <Text style={styles.since}>Member since {memberSince(user.created_at)}</Text>
                     </View>
                 </View>
 
                 <View style={styles.stats}>
-                    <Stat value={hostingCount} label="Hosting" onPress={openMySessions} />
-                    <Stat value={joinedCount} label="Joined" onPress={openMySessions} />
+                    <Stat value={counts.hosting} label="Hosting" onPress={openMySessions} />
+                    <Stat value={counts.joined} label="Joined" onPress={openMySessions} />
                 </View>
 
                 <View style={styles.list}>
@@ -61,7 +92,7 @@ export default function ProfileScreen({ navigation }) {
                     <View style={styles.listRow}>
                         <Icon name="mail" size={20} color={colors.muted} />
                         <Text style={styles.listLabel}>Email</Text>
-                        <Text style={styles.listValue} numberOfLines={1}>{currentUser.email}</Text>
+                        <Text style={styles.listValue} numberOfLines={1}>{user.email}</Text>
                     </View>
                 </View>
 
@@ -72,7 +103,7 @@ export default function ProfileScreen({ navigation }) {
             </ScrollView>
 
             <AvatarSheet visible={isSheetOpen} onClose={() => setIsSheetOpen(false)} />
-        </View>
+        </>
     );
 }
 
