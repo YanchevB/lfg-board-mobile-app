@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import AuthProvider from './contexts/AuthProvider';
 import AuthStack from './navigation/AuthStack';
 import MainTabs from './navigation/MainTabs';
 import { navigationTheme } from './theme';
@@ -33,11 +34,13 @@ export default function App() {
     }
 
     return (
-        <SafeAreaProvider>
-            <NavigationContainer theme={navigationTheme}>
-                <StatusBar style="light" />
-                {isLoggedIn ? <MainTabs /> : <AuthStack />}
-            </NavigationContainer>
-        </SafeAreaProvider>
+        <AuthProvider>
+            <SafeAreaProvider>
+                <NavigationContainer theme={navigationTheme}>
+                    <StatusBar style="light" />
+                    {isLoggedIn ? <MainTabs /> : <AuthStack />}
+                </NavigationContainer>
+            </SafeAreaProvider>
+        </AuthProvider>
     );
 }
