@@ -1,36 +1,54 @@
-import { useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppButton from '../components/AppButton';
+import FieldError from '../components/FieldError';
 import FormField from '../components/FormField';
 import Icon from '../components/Icon';
+import useForm from '../hooks/useForm';
+import supabase from '../lib/supabase';
 import { colors, fonts } from '../theme';
+import registerValidate from '../utils/registerValidate';
 
 export default function RegisterScreen({ navigation }) {
-    const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [errors, setErrors] = useState({});
+    const { formData, fieldError, error, isSubmitting, changeHandler, submitHandler } = useForm(
+        { username: '', email: '', password: '', confirmPassword: '' },
+        registerValidate,
+        async (values) => {
+            const username = values.username.trim();
 
-    function submit() {
-        const newErrors = {};
+            // Checked before signUp, because a taken username otherwise only comes back as "Database error saving new user"
+            const { data: takenProfile, error: profileError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('username', username)
+                .maybeSingle();
 
-        if (!username.trim()) newErrors.username = 'Username is required';
-        if (!email.trim()) newErrors.email = 'Email is required';
+            if (profileError) {
+                throw profileError;
+            }
 
-        if (!password) {
-            newErrors.password = 'Password is required';
-        } else if (password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters';
-        }
+            if (takenProfile) {
+                return { username: 'Username is already taken' };
+            }
 
-        if (confirmPassword !== password) newErrors.confirmPassword = "Passwords don't match";
+            const { error: signUpError } = await supabase.auth.signUp({
+                email: values.email.trim(),
+                password: values.password,
+                options: {
+                    data: { username },
+                },
+            });
 
-        // Creating the account comes with AuthContext (Leg 2)
-        setErrors(newErrors);
-    }
+            if (signUpError) {
+                if (signUpError.code === 'user_already_exists') {
+                    return { email: 'Email is already registered' };
+                }
+
+                throw signUpError;
+            }
+        },
+    );
 
     return (
         <SafeAreaView style={styles.screen} edges={['top']}>
@@ -49,37 +67,43 @@ export default function RegisterScreen({ navigation }) {
                     <View style={styles.form}>
                         <FormField
                             label="Username"
-                            value={username}
-                            onChangeText={setUsername}
-                            error={errors.username}
+                            value={formData.username}
+                            onChangeText={(text) => changeHandler('username', text)}
+                            error={fieldError.username}
                             autoCapitalize="none"
                         />
                         <FormField
                             label="Email"
-                            value={email}
-                            onChangeText={setEmail}
-                            error={errors.email}
+                            value={formData.email}
+                            onChangeText={(text) => changeHandler('email', text)}
+                            error={fieldError.email}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoComplete="email"
                         />
                         <FormField
                             label="Password"
-                            value={password}
-                            onChangeText={setPassword}
-                            error={errors.password}
+                            value={formData.password}
+                            onChangeText={(text) => changeHandler('password', text)}
+                            error={fieldError.password}
                             secureTextEntry
                             autoCapitalize="none"
                         />
                         <FormField
                             label="Confirm password"
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                            error={errors.confirmPassword}
+                            value={formData.confirmPassword}
+                            onChangeText={(text) => changeHandler('confirmPassword', text)}
+                            error={fieldError.confirmPassword}
                             secureTextEntry
                             autoCapitalize="none"
                         />
-                        <AppButton title="Create account" onPress={submit} style={styles.submit} />
+                        {error && <FieldError message={error} />}
+                        <AppButton
+                            title={isSubmitting ? 'Creating account…' : 'Create account'}
+                            onPress={submitHandler}
+                            disabled={isSubmitting}
+                            style={styles.submit}
+                        />
                     </View>
 
                     <View style={styles.spacer} />
