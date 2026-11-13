@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getHostedSessions, getJoinedSessions } from '../api/sessions';
 import AppButton from '../components/AppButton';
@@ -13,6 +13,7 @@ import LoadingState from '../components/LoadingState';
 import MessageState from '../components/MessageState';
 import useAuth from '../hooks/useAuth';
 import useFetch from '../hooks/useFetch';
+import supabase from '../lib/supabase';
 import { colors, fonts } from '../theme';
 import { memberSince } from '../utils/time';
 
@@ -31,6 +32,7 @@ export default function ProfileScreen({ navigation }) {
 
 function ProfileContent({ user, navigation }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const username = user.user_metadata.username;
 
@@ -51,6 +53,19 @@ function ProfileContent({ user, navigation }) {
 
     function openMySessions() {
         navigation.navigate('MySessionsTab');
+    }
+
+    // No navigate here: AuthProvider sees the session end and App switches to AuthStack
+    async function logout() {
+        setIsLoggingOut(true);
+
+        const { error: signOutError } = await supabase.auth.signOut();
+
+        // On success this screen unmounts, so only reset when the session is still there
+        if (signOutError) {
+            setIsLoggingOut(false);
+            Alert.alert("Couldn't log out", signOutError.message);
+        }
     }
 
     return (
@@ -98,8 +113,13 @@ function ProfileContent({ user, navigation }) {
 
                 <View style={styles.spacer} />
 
-                {/* Logging out comes with AuthContext (Thu Nov 12) */}
-                <AppButton title="Log out" icon="logout" variant="danger" />
+                <AppButton
+                    title={isLoggingOut ? 'Logging out…' : 'Log out'}
+                    icon="logout"
+                    variant="danger"
+                    onPress={logout}
+                    disabled={isLoggingOut}
+                />
             </ScrollView>
 
             <AvatarSheet visible={isSheetOpen} onClose={() => setIsSheetOpen(false)} />
