@@ -1,25 +1,33 @@
-import { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppButton from '../components/AppButton';
+import FieldError from '../components/FieldError';
 import FormField from '../components/FormField';
+import useForm from '../hooks/useForm';
+import supabase from '../lib/supabase';
 import { colors, fonts } from '../theme';
+import loginValidate from '../utils/loginValidate';
 
 export default function LoginScreen({ navigation }) {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [errors, setErrors] = useState({});
+    const { formData, fieldError, error, isSubmitting, changeHandler, submitHandler } = useForm(
+        { email: '', password: '' },
+        loginValidate,
+        async (values) => {
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email: values.email.trim(),
+                password: values.password,
+            });
 
-    function submit() {
-        const newErrors = {};
+            if (signInError) {
+                if (signInError.code === 'invalid_credentials') {
+                    throw new Error('Incorrect email or password');
+                }
 
-        if (!email.trim()) newErrors.email = 'Email is required';
-        if (!password) newErrors.password = 'Password is required';
-
-        // Signing in comes with AuthContext (Leg 2)
-        setErrors(newErrors);
-    }
+                throw signInError;
+            }
+        },
+    );
 
     return (
         <SafeAreaView style={styles.screen} edges={['top']}>
@@ -41,9 +49,9 @@ export default function LoginScreen({ navigation }) {
                                 large
                                 label="Email"
                                 placeholder="you@example.com"
-                                value={email}
-                                onChangeText={setEmail}
-                                error={errors.email}
+                                value={formData.email}
+                                onChangeText={(text) => changeHandler('email', text)}
+                                error={fieldError.email}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 autoComplete="email"
@@ -51,14 +59,20 @@ export default function LoginScreen({ navigation }) {
                             <FormField
                                 large
                                 label="Password"
-                                value={password}
-                                onChangeText={setPassword}
-                                error={errors.password}
+                                value={formData.password}
+                                onChangeText={(text) => changeHandler('password', text)}
+                                error={fieldError.password}
                                 secureTextEntry
                                 canRevealPassword
                                 autoCapitalize="none"
                             />
-                            <AppButton title="Log in" onPress={submit} style={styles.submit} />
+                            {error && <FieldError message={error} />}
+                            <AppButton
+                                title={isSubmitting ? 'Logging in…' : 'Log in'}
+                                onPress={submitHandler}
+                                disabled={isSubmitting}
+                                style={styles.submit}
+                            />
                         </View>
                     </View>
 
