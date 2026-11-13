@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flexGrow: 1,
+        gap: 24,
         paddingHorizontal: 24,
         paddingBottom: 40,
     },
