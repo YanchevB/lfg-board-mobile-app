@@ -6,16 +6,26 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AuthProvider from './contexts/AuthProvider';
+import useAuth from './hooks/useAuth';
 import AuthStack from './navigation/AuthStack';
 import MainTabs from './navigation/MainTabs';
 import { navigationTheme } from './theme';
 
 SplashScreen.preventAutoHideAsync();
 
-// Temporary until AuthContext exists (Leg 2). Set to false to see Login/Register (AuthStack).
-const isLoggedIn = true;
-
 export default function App() {
+    return (
+        <AuthProvider>
+            <SafeAreaProvider>
+                <Root />
+            </SafeAreaProvider>
+        </AuthProvider>
+    );
+}
+
+// Separate from App because useAuth only works inside AuthProvider
+function Root() {
+    const { isAuthenticated, isAuthReady } = useAuth();
     const [fontsLoaded, fontError] = useFonts({
         Inter_400Regular,
         Inter_600SemiBold,
@@ -23,24 +33,23 @@ export default function App() {
         Inter_800ExtraBold,
     });
 
+    // The splash screen stays up until the fonts are loaded and the stored session is read
+    const isReady = (fontsLoaded || Boolean(fontError)) && isAuthReady;
+
     useEffect(() => {
-        if (fontsLoaded || fontError) {
+        if (isReady) {
             SplashScreen.hideAsync();
         }
-    }, [fontsLoaded, fontError]);
+    }, [isReady]);
 
-    if (!fontsLoaded && !fontError) {
+    if (!isReady) {
         return null;
     }
 
     return (
-        <AuthProvider>
-            <SafeAreaProvider>
-                <NavigationContainer theme={navigationTheme}>
-                    <StatusBar style="light" />
-                    {isLoggedIn ? <MainTabs /> : <AuthStack />}
-                </NavigationContainer>
-            </SafeAreaProvider>
-        </AuthProvider>
+        <NavigationContainer theme={navigationTheme}>
+            <StatusBar style="light" />
+            {isAuthenticated ? <MainTabs /> : <AuthStack />}
+        </NavigationContainer>
     );
 }
