@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,41 +6,22 @@ import { HEADER_BAR_HEIGHT } from './AppHeader';
 import FieldError from './FieldError';
 import FormField from './FormField';
 import Icon from './Icon';
+import useForm from '../hooks/useForm';
 import { colors, fonts } from '../theme';
+import sessionValidate from '../utils/sessionValidate';
 
 const PLATFORMS = ['PC', 'PS5', 'Xbox', 'Switch', 'Cross-platform'];
 const MIN_SLOTS = 2;
 const MAX_SLOTS = 8;
 
-export default function SessionForm({ initialValues, joinedCount = 0, submitLabel, onSubmit }) {
+export default function SessionForm({ initialValues, joinedCount = 0, submitLabel, submittingLabel, onSubmit }) {
     const insets = useSafeAreaInsets();
 
-    const [game, setGame] = useState(initialValues.game);
-    const [platform, setPlatform] = useState(initialValues.platform);
-    const [slots, setSlots] = useState(initialValues.slots);
-    const [micRequired, setMicRequired] = useState(initialValues.mic_required);
-    const [description, setDescription] = useState(initialValues.description);
-    const [gameError, setGameError] = useState('');
-
-    const slotsTooLow = slots < joinedCount;
-
-    function changeGame(value) {
-        setGame(value);
-        setGameError('');
-    }
-
-    function submit() {
-        if (!game.trim()) {
-            setGameError('Game is required');
-            return;
-        }
-
-        if (slotsTooLow) {
-            return;
-        }
-
-        onSubmit({ game: game.trim(), platform, slots, mic_required: micRequired, description: description.trim() });
-    }
+    const { formData, fieldError, error, isSubmitting, changeHandler, submitHandler } = useForm(
+        initialValues,
+        (values) => sessionValidate(values, joinedCount),
+        onSubmit,
+    );
 
     return (
         <KeyboardAvoidingView
@@ -53,9 +33,9 @@ export default function SessionForm({ initialValues, joinedCount = 0, submitLabe
                 <FormField
                     label="Game"
                     placeholder="e.g. Rocket League"
-                    value={game}
-                    onChangeText={changeGame}
-                    error={gameError}
+                    value={formData.game}
+                    onChangeText={(text) => changeHandler('game', text)}
+                    error={fieldError.game}
                 />
 
                 <View style={styles.group}>
@@ -65,15 +45,16 @@ export default function SessionForm({ initialValues, joinedCount = 0, submitLabe
                             <PlatformChip
                                 key={option}
                                 label={option}
-                                selected={option === platform}
-                                onPress={() => setPlatform(option)}
+                                selected={option === formData.platform}
+                                onPress={() => changeHandler('platform', option)}
                             />
                         ))}
                     </View>
+                    {fieldError.platform && <FieldError message={fieldError.platform} />}
                 </View>
 
                 <View style={styles.field}>
-                    <View style={[styles.panel, slotsTooLow && styles.panelError]}>
+                    <View style={[styles.panel, fieldError.slots && styles.panelError]}>
                         <View style={styles.panelText}>
                             <Text style={styles.panelTitle}>Open slots</Text>
                             <Text style={styles.panelHint}>
@@ -87,20 +68,20 @@ export default function SessionForm({ initialValues, joinedCount = 0, submitLabe
                             <StepButton
                                 icon="minus"
                                 label="Fewer slots"
-                                disabled={slots <= MIN_SLOTS}
-                                onPress={() => setSlots(slots - 1)}
+                                disabled={formData.slots <= MIN_SLOTS}
+                                onPress={() => changeHandler('slots', formData.slots - 1)}
                             />
-                            <Text style={[styles.stepValue, slotsTooLow && styles.stepValueError]}>{slots}</Text>
+                            <Text style={[styles.stepValue, fieldError.slots && styles.stepValueError]}>{formData.slots}</Text>
                             <StepButton
                                 icon="plus"
                                 label="More slots"
-                                disabled={slots >= MAX_SLOTS}
-                                onPress={() => setSlots(slots + 1)}
+                                disabled={formData.slots >= MAX_SLOTS}
+                                onPress={() => changeHandler('slots', formData.slots + 1)}
                             />
                         </View>
                     </View>
 
-                    {slotsTooLow && <FieldError message={`Slots can't be lower than the ${joinedCount} players who joined`} />}
+                    {fieldError.slots && <FieldError message={fieldError.slots} />}
                 </View>
 
                 <View style={styles.panel}>
@@ -109,8 +90,8 @@ export default function SessionForm({ initialValues, joinedCount = 0, submitLabe
                         <Text style={styles.panelHint}>Players must be able to talk</Text>
                     </View>
                     <Switch
-                        value={micRequired}
-                        onValueChange={setMicRequired}
+                        value={formData.mic_required}
+                        onValueChange={(value) => changeHandler('mic_required', value)}
                         trackColor={{ false: colors.border, true: colors.accent }}
                         thumbColor="#ffffff"
                         ios_backgroundColor={colors.border}
@@ -121,14 +102,19 @@ export default function SessionForm({ initialValues, joinedCount = 0, submitLabe
                     label="Description"
                     hint="(optional)"
                     placeholder="Rank, mode, where you'll meet up…"
-                    value={description}
-                    onChangeText={setDescription}
+                    value={formData.description}
+                    onChangeText={(text) => changeHandler('description', text)}
                     multiline
                 />
             </ScrollView>
 
             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-                <AppButton title={submitLabel} onPress={submit} />
+                {error && <FieldError message={error} />}
+                <AppButton
+                    title={isSubmitting ? submittingLabel : submitLabel}
+                    onPress={submitHandler}
+                    disabled={isSubmitting}
+                />
             </View>
         </KeyboardAvoidingView>
     );
@@ -270,6 +256,7 @@ const styles = StyleSheet.create({
         color: colors.dangerText,
     },
     footer: {
+        gap: 12,
         paddingTop: 12,
         paddingHorizontal: 16,
         borderTopWidth: 1,

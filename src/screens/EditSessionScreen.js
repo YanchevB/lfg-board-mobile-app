@@ -31,6 +31,7 @@ export default function EditSessionScreen({ navigation, route }) {
             initialValues={{ ...session, description: session.description ?? '' }}
             joinedCount={session.players.length}
             submitLabel="Save changes"
+            submittingLabel="Saving…"
             onSubmit={() => navigation.goBack()}
         />
     );
