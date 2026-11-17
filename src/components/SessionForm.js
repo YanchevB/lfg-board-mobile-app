@@ -1,8 +1,7 @@
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from './AppButton';
-import { HEADER_BAR_HEIGHT } from './AppHeader';
 import FieldError from './FieldError';
 import FormField from './FormField';
 import Icon from './Icon';
@@ -24,12 +23,14 @@ export default function SessionForm({ initialValues, joinedCount = 0, submitLabe
     );
 
     return (
-        <KeyboardAvoidingView
-            style={styles.screen}
-            behavior="padding"
-            keyboardVerticalOffset={insets.top + HEADER_BAR_HEIGHT}
-        >
-            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        // iOS: the ScrollView makes room for the keyboard itself (this also works inside the modal sheet)
+        // Android: KeyboardAvoidingView does it, no offset needed because the header is already above this view
+        <KeyboardAvoidingView style={styles.screen} behavior="padding" enabled={Platform.OS === 'android'}>
+            <ScrollView
+                contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) }]}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets
+            >
                 <FormField
                     label="Game"
                     placeholder="e.g. Rocket League"
@@ -106,16 +107,16 @@ export default function SessionForm({ initialValues, joinedCount = 0, submitLabe
                     onChangeText={(text) => changeHandler('description', text)}
                     multiline
                 />
-            </ScrollView>
 
-            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-                {error && <FieldError message={error} />}
-                <AppButton
-                    title={isSubmitting ? submittingLabel : submitLabel}
-                    onPress={submitHandler}
-                    disabled={isSubmitting}
-                />
-            </View>
+                <View style={styles.submit}>
+                    {error && <FieldError message={error} />}
+                    <AppButton
+                        title={isSubmitting ? submittingLabel : submitLabel}
+                        onPress={submitHandler}
+                        disabled={isSubmitting}
+                    />
+                </View>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }
@@ -255,11 +256,7 @@ const styles = StyleSheet.create({
     stepValueError: {
         color: colors.dangerText,
     },
-    footer: {
+    submit: {
         gap: 12,
-        paddingTop: 12,
-        paddingHorizontal: 16,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
     },
 });

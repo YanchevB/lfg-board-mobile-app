@@ -4,8 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { colors, fonts } from '../theme';
 
-export const HEADER_BAR_HEIGHT = 48;
-
 export default function AppHeader({ navigation, route, options, back }) {
     const insets = useSafeAreaInsets();
 
@@ -47,7 +45,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        height: HEADER_BAR_HEIGHT,
+        height: 48,
         paddingHorizontal: 8,
     },
     title: {
