@@ -10,7 +10,6 @@ import ErrorState from '../components/ErrorState';
 import Icon from '../components/Icon';
 import LargeHeader from '../components/LargeHeader';
 import LoadingState from '../components/LoadingState';
-import MessageState from '../components/MessageState';
 import useAuth from '../hooks/useAuth';
 import useFetch from '../hooks/useFetch';
 import supabase from '../lib/supabase';
@@ -23,9 +22,7 @@ export default function ProfileScreen({ navigation }) {
     return (
         <View style={styles.screen}>
             <LargeHeader title="Profile" paddingBottom={8} />
-            {user
-                ? <ProfileContent user={user} navigation={navigation} />
-                : <MessageState message="Log in to see your profile." />}
+            <ProfileContent user={user} navigation={navigation} />
         </View>
     );
 }

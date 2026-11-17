@@ -9,7 +9,6 @@ import ErrorState from '../components/ErrorState';
 import Icon from '../components/Icon';
 import LargeHeader from '../components/LargeHeader';
 import LoadingState from '../components/LoadingState';
-import MessageState from '../components/MessageState';
 import SectionLabel from '../components/SectionLabel';
 import useAuth from '../hooks/useAuth';
 import useFetch from '../hooks/useFetch';
@@ -22,9 +21,7 @@ export default function MySessionsScreen({ navigation }) {
     return (
         <View style={styles.screen}>
             <LargeHeader title="My Sessions" />
-            {user
-                ? <MySessionsList userId={user.id} navigation={navigation} />
-                : <MessageState message="Log in to see the sessions you host and join." />}
+            <MySessionsList userId={user.id} navigation={navigation} />
         </View>
     );
 }
