@@ -52,3 +52,30 @@ export async function getSession(id) {
 
     return data && toSession(data);
 }
+
+// owner_id and session_players.user_id default to auth.uid() in the database
+export async function createSession(values) {
+    const { data: session, error } = await supabase
+        .from('sessions')
+        .insert({
+            game: values.game.trim(),
+            platform: values.platform,
+            slots: values.slots,
+            mic_required: values.mic_required,
+            description: values.description.trim() || null,
+        })
+        .select('id')
+        .single();
+
+    if (error) throw error;
+
+    const { error: playerError } = await supabase.from('session_players').insert({ session_id: session.id });
+
+    if (playerError) {
+        // Without the host's row the session would show 0 players, so undo it and let the user retry
+        await supabase.from('sessions').delete().eq('id', session.id);
+        throw playerError;
+    }
+
+    return session.id;
+}
