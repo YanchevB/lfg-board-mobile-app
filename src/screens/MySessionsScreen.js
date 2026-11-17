@@ -60,6 +60,18 @@ function MySessionsList({ userId, navigation }) {
                         onPress={() => openSession(session.id)}
                     />
                 ))}
+                {hosting.length === 0 && (
+                    <View style={styles.promo}>
+                        <Text style={styles.promoText}>{"You're not hosting anything yet. Host a lobby and it shows up here."}</Text>
+                        <AppButton
+                            title="Host a session"
+                            icon="plus"
+                            variant="outline"
+                            size="sm"
+                            onPress={() => navigation.navigate('CreateSession')}
+                        />
+                    </View>
+                )}
             </View>
 
             <View style={styles.section}>
@@ -72,17 +84,18 @@ function MySessionsList({ userId, navigation }) {
                         onPress={() => openSession(session.id)}
                     />
                 ))}
-            </View>
-
-            <View style={styles.promo}>
-                <Text style={styles.promoText}>Want more people? Host another lobby and it shows up here.</Text>
-                <AppButton
-                    title="Host a session"
-                    icon="plus"
-                    variant="outline"
-                    size="sm"
-                    onPress={() => navigation.navigate('CreateSession')}
-                />
+                {joined.length === 0 && (
+                    <View style={styles.promo}>
+                        <Text style={styles.promoText}>{"You haven't joined any sessions yet. Find one in the catalog."}</Text>
+                        <AppButton
+                            title="Browse sessions"
+                            icon="grid"
+                            variant="outline"
+                            size="sm"
+                            onPress={() => navigation.navigate('CatalogTab')}
+                        />
+                    </View>
+                )}
             </View>
         </ScrollView>
     );
