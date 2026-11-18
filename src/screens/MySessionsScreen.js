@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getHostedSessions, getJoinedSessions } from '../api/sessions';
@@ -33,6 +34,16 @@ function MySessionsList({ userId, navigation }) {
         return { hosting, joined };
     }, [userId]);
     const { data, error, isLoading, isRefreshing, refresh } = useFetch(fetchMySessions);
+
+    const isFirstFocus = useRef(true);
+    useFocusEffect(useCallback(() => {
+        if (isFirstFocus.current) {
+            isFirstFocus.current = false;
+            return;
+        }
+
+        refresh();
+    }, [refresh]));
 
     if (isLoading) {
         return <LoadingState />;

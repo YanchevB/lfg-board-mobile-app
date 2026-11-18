@@ -1,3 +1,5 @@
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useRef } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getOpenSessions } from '../api/sessions';
@@ -12,6 +14,16 @@ import { colors, fonts } from '../theme';
 
 export default function CatalogScreen({ navigation }) {
     const { data: sessions, error, isLoading, isRefreshing, refresh } = useFetch(getOpenSessions);
+
+    const isFirstFocus = useRef(true);
+    useFocusEffect(useCallback(() => {
+        if (isFirstFocus.current) {
+            isFirstFocus.current = false;
+            return;
+        }
+
+        refresh();
+    }, [refresh]));
 
     function renderContent() {
         if (isLoading) {

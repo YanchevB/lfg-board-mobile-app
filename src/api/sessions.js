@@ -94,3 +94,10 @@ export async function updateSession(id, values) {
 
     if (error) throw error;
 }
+
+// session_players and comments go with it (ON DELETE CASCADE)
+export async function deleteSession(id) {
+    const { error } = await supabase.from('sessions').delete().eq('id', id);
+
+    if (error) throw error;
+}

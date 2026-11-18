@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { getSession } from '../api/sessions';
+import { deleteSession, getSession } from '../api/sessions';
 import AppButton from '../components/AppButton';
 import { appRefreshControl } from '../components/appRefreshControl';
 import Avatar from '../components/Avatar';
@@ -30,6 +30,8 @@ export default function SessionDetailsScreen({ navigation, route }) {
         if (savedAt) refresh();
     }, [savedAt, refresh]);
 
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const isHost = Boolean(user) && session?.owner_id === user.id;
 
     useLayoutEffect(() => {
@@ -47,6 +49,25 @@ export default function SessionDetailsScreen({ navigation, route }) {
             });
         }
     }, [navigation, id, isHost]);
+
+    function confirmDelete() {
+        Alert.alert('Delete this session?', 'Everyone who joined loses their spot. This can\'t be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: deleteHandler },
+        ]);
+    }
+
+    async function deleteHandler() {
+        setIsDeleting(true);
+
+        try {
+            await deleteSession(id);
+            navigation.goBack();
+        } catch (err) {
+            setIsDeleting(false);
+            Alert.alert('Couldn\'t delete this session', err.message);
+        }
+    }
 
     if (isLoading) {
         return <LoadingState />;
@@ -117,12 +138,19 @@ export default function SessionDetailsScreen({ navigation, route }) {
                 </View>
             </ScrollView>
 
-            {/* Session actions are connected on Sat Nov 21 and Sun Nov 22 */}
+            {/* Close / Reopen and Join / Leave are connected later */}
             <View style={styles.footer}>
                 {isHost ? (
                     <>
                         <AppButton title="Close session" icon="lock" variant="secondary" style={styles.footerMain} />
-                        <Pressable accessibilityRole="button" accessibilityLabel="Delete session" style={styles.delete}>
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Delete session"
+                            accessibilityState={{ disabled: isDeleting }}
+                            disabled={isDeleting}
+                            onPress={confirmDelete}
+                            style={[styles.delete, isDeleting && styles.deleteDisabled]}
+                        >
                             <Icon name="trashLines" size={20} color={colors.dangerText} strokeWidth={2.25} />
                         </Pressable>
                     </>
@@ -316,5 +344,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderRadius: 10,
         backgroundColor: colors.dangerSoft,
+    },
+    deleteDisabled: {
+        opacity: 0.5,
     },
 });
