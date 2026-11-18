@@ -79,3 +79,18 @@ export async function createSession(values) {
 
     return session.id;
 }
+
+export async function updateSession(id, values) {
+    const { error } = await supabase
+        .from('sessions')
+        .update({
+            game: values.game.trim(),
+            platform: values.platform,
+            slots: values.slots,
+            mic_required: values.mic_required,
+            description: values.description.trim() || null,
+        })
+        .eq('id', id);
+
+    if (error) throw error;
+}

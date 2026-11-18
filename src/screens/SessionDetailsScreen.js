@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getSession } from '../api/sessions';
@@ -20,11 +20,15 @@ import { timeAgo } from '../utils/time';
 const MAX_EMPTY_SEATS = 3;
 
 export default function SessionDetailsScreen({ navigation, route }) {
-    const { id } = route.params;
+    const { id, savedAt } = route.params;
     const { user } = useAuth();
 
     const fetchSession = useCallback(() => getSession(id), [id]);
     const { data: session, error, isLoading, isRefreshing, refresh } = useFetch(fetchSession);
+
+    useEffect(() => {
+        if (savedAt) refresh();
+    }, [savedAt, refresh]);
 
     const isHost = Boolean(user) && session?.owner_id === user.id;
 
