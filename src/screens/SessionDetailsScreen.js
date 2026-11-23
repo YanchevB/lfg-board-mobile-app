@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { deleteSession, getSession } from '../api/sessions';
+import { deleteSession, getSession, joinSession, leaveSession, setSessionClosed } from '../api/sessions';
 import AppButton from '../components/AppButton';
 import { appRefreshControl } from '../components/appRefreshControl';
 import Avatar from '../components/Avatar';
@@ -30,7 +30,9 @@ export default function SessionDetailsScreen({ navigation, route }) {
         if (savedAt) refresh();
     }, [savedAt, refresh]);
 
-    const [isDeleting, setIsDeleting] = useState(false);
+    // 'join' | 'leave' | 'close' | 'reopen' | 'delete' while a request runs, so every action button is disabled
+    const [pendingAction, setPendingAction] = useState(null);
+    const isActing = pendingAction !== null;
 
     const isHost = Boolean(user) && session?.owner_id === user.id;
 
@@ -58,16 +60,35 @@ export default function SessionDetailsScreen({ navigation, route }) {
     }
 
     async function deleteHandler() {
-        setIsDeleting(true);
+        setPendingAction('delete');
 
         try {
             await deleteSession(id);
             navigation.goBack();
         } catch (err) {
-            setIsDeleting(false);
+            setPendingAction(null);
             Alert.alert('Couldn\'t delete this session', err.message);
         }
     }
+
+    // Runs the request, then reloads the session so status, players and buttons match the database
+    async function runAction(action, errorTitle, request) {
+        setPendingAction(action);
+
+        try {
+            await request();
+            await refresh();
+        } catch (err) {
+            Alert.alert(errorTitle, err.message);
+        } finally {
+            setPendingAction(null);
+        }
+    }
+
+    const joinHandler = () => runAction('join', 'Couldn\'t join this session', () => joinSession(id));
+    const leaveHandler = () => runAction('leave', 'Couldn\'t leave this session', () => leaveSession(id, user.id));
+    const closeHandler = () => runAction('close', 'Couldn\'t close this session', () => setSessionClosed(id, true));
+    const reopenHandler = () => runAction('reopen', 'Couldn\'t reopen this session', () => setSessionClosed(id, false));
 
     if (isLoading) {
         return <LoadingState />;
@@ -138,40 +159,95 @@ export default function SessionDetailsScreen({ navigation, route }) {
                 </View>
             </ScrollView>
 
-            {/* Close / Reopen and Join / Leave are connected later */}
             <View style={styles.footer}>
                 {isHost ? (
-                    <>
-                        <AppButton title="Close session" icon="lock" variant="secondary" style={styles.footerMain} />
+                    <View style={styles.footerRow}>
+                        {session.is_closed ? (
+                            <AppButton
+                                title={pendingAction === 'reopen' ? 'Reopening…' : 'Reopen session'}
+                                icon="unlock"
+                                variant="secondary"
+                                disabled={isActing}
+                                onPress={reopenHandler}
+                                style={styles.footerMain}
+                            />
+                        ) : (
+                            <AppButton
+                                title={pendingAction === 'close' ? 'Closing…' : 'Close session'}
+                                icon="lock"
+                                variant="secondary"
+                                disabled={isActing}
+                                onPress={closeHandler}
+                                style={styles.footerMain}
+                            />
+                        )}
                         <Pressable
                             accessibilityRole="button"
                             accessibilityLabel="Delete session"
-                            accessibilityState={{ disabled: isDeleting }}
-                            disabled={isDeleting}
+                            accessibilityState={{ disabled: isActing }}
+                            disabled={isActing}
                             onPress={confirmDelete}
-                            style={[styles.delete, isDeleting && styles.deleteDisabled]}
+                            style={[styles.delete, isActing && styles.deleteDisabled]}
                         >
                             <Icon name="trashLines" size={20} color={colors.dangerText} strokeWidth={2.25} />
                         </Pressable>
-                    </>
+                    </View>
                 ) : (
-                    <JoinButton session={session} status={status} userId={user?.id} />
+                    <JoinActions
+                        session={session}
+                        status={status}
+                        isMember={session.players.some((player) => player.id === user.id)}
+                        pendingAction={pendingAction}
+                        onJoin={joinHandler}
+                        onLeave={leaveHandler}
+                    />
                 )}
             </View>
         </View>
     );
 }
 
-function JoinButton({ session, status, userId }) {
-    if (session.players.some((player) => player.id === userId)) {
-        return <AppButton title="Leave session" variant="secondary" style={styles.footerMain} />;
+// A member can always leave, even a closed or full session. Everyone else sees why they can't join.
+function JoinActions({ session, status, isMember, pendingAction, onJoin, onLeave }) {
+    const isActing = pendingAction !== null;
+
+    if (isMember) {
+        return (
+            <AppButton
+                title={pendingAction === 'leave' ? 'Leaving…' : 'Leave session'}
+                variant="danger"
+                disabled={isActing}
+                onPress={onLeave}
+            />
+        );
     }
 
-    if (status !== 'open') {
-        return <AppButton title={status === 'full' ? 'Session full' : 'Session closed'} disabled style={styles.footerMain} />;
+    if (status === 'closed') {
+        return (
+            <>
+                <Text style={styles.footerNote}>The host closed this session. No new players can join.</Text>
+                <AppButton title="Session closed" icon="lock" disabled />
+            </>
+        );
     }
 
-    return <AppButton title="Join session" style={styles.footerMain} />;
+    if (status === 'full') {
+        return (
+            <>
+                <Text style={styles.footerNote}>All {session.slots} slots are taken.</Text>
+                <AppButton title="Session full" disabled />
+            </>
+        );
+    }
+
+    return (
+        <AppButton
+            title={pendingAction === 'join' ? 'Joining…' : 'Join session'}
+            icon="plus"
+            disabled={isActing}
+            onPress={onJoin}
+        />
+    );
 }
 
 function Stat({ label, value }) {
@@ -326,16 +402,25 @@ const styles = StyleSheet.create({
         fontFamily: fonts.regular,
     },
     footer: {
-        flexDirection: 'row',
-        gap: 10,
+        gap: 8,
         paddingVertical: 12,
         paddingHorizontal: 16,
         backgroundColor: colors.background,
         borderTopWidth: 1,
         borderTopColor: colors.border,
     },
+    footerRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
     footerMain: {
         flex: 1,
+    },
+    footerNote: {
+        fontSize: 13,
+        textAlign: 'center',
+        color: colors.muted,
+        fontFamily: fonts.regular,
     },
     delete: {
         width: 52,

@@ -101,3 +101,22 @@ export async function deleteSession(id) {
 
     if (error) throw error;
 }
+
+export async function setSessionClosed(id, isClosed) {
+    const { error } = await supabase.from('sessions').update({ is_closed: isClosed }).eq('id', id);
+
+    if (error) throw error;
+}
+
+// user_id defaults to auth.uid() in the database
+export async function joinSession(id) {
+    const { error } = await supabase.from('session_players').insert({ session_id: id });
+
+    if (error) throw error;
+}
+
+export async function leaveSession(id, userId) {
+    const { error } = await supabase.from('session_players').delete().eq('session_id', id).eq('user_id', userId);
+
+    if (error) throw error;
+}
